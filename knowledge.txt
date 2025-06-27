@@ -1,0 +1,100 @@
+# 📌 Project PRD: Instagram DM Concierge — MCP + Claude + FastAPI Backend + Loveable Frontend
+
+## 🧠 Goal:
+Build a backend system that:
+- Connects to the Gala Labs MCP (https://github.com/trypeggy/instagram_dm_mcp)
+- Polls and replies to DMs using Claude Desktop as agent
+- Uses FastAPI to serve:
+  - Editable DM templates
+  - Basic dashboard stats
+  - Target user management
+- Connects to a lightweight React (Vite + Tailwind) frontend built with Loveable (no-auth, local only)
+
+---
+
+## ✅ Features
+
+### 1. Real-Time DM Bot Behavior (via Claude Desktop)
+- Poll `list_chats` every 2–5 mins
+- For each new message in `list_messages`:
+  - Classify intent with rule-based logic (no external LLMs)
+  - Match with appropriate template
+  - `mark_message_seen`
+  - `send_message`
+  - Log metadata (thread, user, time, category)
+
+### 2. Backend API (Python + FastAPI)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/stats` | GET    | Returns metrics: messages processed, response time avg, unresolved |
+| `/templates` | GET/POST/PUT/DELETE | CRUD for response templates stored in JSON |
+| `/targets` | GET/POST | Add or view users being tracked |
+| `/log` | GET | Retrieve full interaction log |
+| `/ping` | GET | Health check for dashboard |
+
+### 3. Frontend Dashboard (Loveable export → Vite+Tailwind)
+- Sidebar with: Inbox, Templates, Targets, Stats
+- DM Templates UI: Add/Edit tags, categories, text
+- Stats Cards: Responses sent, pending, avg latency
+- Minimal clean layout (award-winning style prompt used)
+- Connects to above APIs (local only)
+
+---
+
+## 📁 File Structure
+
+project/
+├── main.py # FastAPI server entry
+├── tasks/
+│ └── dm_poller.py # Polling logic
+├── api/
+│ └── routes.py # API endpoints
+├── data/
+│ ├── templates.json # DM templates
+│ ├── targets.json # User targets
+│ └── log.json # Interaction log
+├── utils/
+│ └── mcp_client.py # Wrapper around Gala MCP tools
+├── frontend/ # Output from Loveable (Vite+Tailwind build)
+│ └── index.html
+├── .env
+├── requirements.txt
+└── README.md
+
+yaml
+Copy
+Edit
+
+---
+
+## 🔌 Claude Desktop MCP Integration
+
+- Uses `uv` to launch: `uv run --directory ./ instagram_dm_mcp/src/mcp_server.py`
+- Configured in `~/.cursor/mcp.json` or Claude config for tool interface
+- All MCP commands (`list_chats`, `send_message`, etc.) wrapped in `mcp_client.py`
+
+---
+
+## 💡 Example Workflow
+
+1. User adds DM templates via frontend (stored in `templates.json`)
+2. User adds usernames in Targets tab
+3. Poller fetches new DMs from those targets
+4. If message matches intent:
+   - Message marked as seen
+   - Template used to respond
+   - Log is updated
+5. Stats are updated in backend and fetched by dashboard
+
+---
+
+## 🚫 Constraints
+- No third-party APIs
+- No database (use JSON file stores)
+- All local, single user setup
+- Keep everything bug-free and clean
+
+## 🧪 Deliverables
+- FastAPI backend with running endpoints
+- Claude Desktop MCP automation working with real messages
+- Loveable-exported dashboard, styled and API-ready
