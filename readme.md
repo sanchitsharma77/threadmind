@@ -1,232 +1,240 @@
-# Instagram DM MCP server
+# Instagram DM Concierge
 
-This is a Model Context Protocol (MCP) server for sending instagram Direct Messages.
+A **local, privacy-first Instagram DM automation system** powered by Claude Desktop and Gala Labs MCP. Automatically responds to Instagram DMs using customizable templates, all running locally on your machine.
 
-With this you can send Instagram Direct Messages from your account (more capabilities coming soon).
+## 🚀 Features
 
-Here's an example of what you can do when it's connected to Claude.
+- **🤖 Automated DM Responses**: Polls Instagram DMs every 5 minutes and auto-replies using templates
+- **🎯 Smart Classification**: Rule-based message classification (no LLMs needed)
+- **📝 Editable Templates**: Manage response templates via beautiful dashboard
+- **👥 Target Management**: Track specific users for auto-responses
+- **📊 Real-time Stats**: Monitor response rates, latency, and success metrics
+- **🔒 Privacy First**: Everything runs locally - no cloud, no external APIs
+- **🎨 Beautiful UI**: Modern dashboard built with React + Tailwind CSS
 
+## 🛠 Tech Stack
 
-https://github.com/user-attachments/assets/9c945f25-4484-4223-8d6b-5bf31243464c
+- **Backend**: FastAPI (Python 3.11+)
+- **Frontend**: React + Vite + Tailwind CSS
+- **Instagram Integration**: Gala Labs MCP (Model Context Protocol)
+- **Storage**: Local JSON files (no database)
+- **AI Agent**: Claude Desktop for MCP execution
 
+## 📁 Project Structure
 
-> To get updates on this and other projects we work on [enter your email here](https://tally.so/r/np6rYy)
+```
+project/
+├── main.py                 # FastAPI server entrypoint
+├── api/
+│   └── routes.py          # REST API endpoints
+├── tasks/
+│   └── dm_poller.py       # DM polling and response logic
+├── utils/
+│   └── mcp_client.py      # MCP tool wrappers
+├── data/
+│   ├── templates.json     # Response templates
+│   ├── targets.json       # Tracked users
+│   └── logs.json          # Interaction history
+├── frontend/              # React dashboard
+├── start.sh               # Startup script
+└── README.md
+```
 
-PS: Join our [Twitter community](https://twitter.com/i/communities/1937504082635170114) for all things MCP 
-
----
-
-## Hackathon Submission
-
-Build anything using this Instagram DM MCP (can be technical, no-code or low-code) and submit!
-
-No restrictions, open to anyone/anywhere to join.
-
-<div align="left">
-
-[![Submit now](https://img.shields.io/badge/Submit%20now-black?style=for-the-badge&logo=tally&logoColor=white&labelColor=000000&color=000000&size=large)](https://tally.so/r/mR18zl)
-
-</div>
-
-> Note: submisions due by Friday 27 June 11:59PM PST
-
-### Three cash prizes up for grabs
-
-1. $5k USD - Breaking the internet (go viral AF)
-2. $2.5k USD - Technical Sorcery (coolest technical implementation)
-3. $2.5k USD - Holy Sh*t Award (make our jaws drop)
-
----
-
-## Installation
+## ⚡️ Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
-- Anthropic Claude Desktop app (or Cursor)
-- Pip (Python package manager), install with `python -m pip install`
-- An instagram account
+1. **Python 3.11+** installed
+2. **Node.js 18+** installed
+3. **Claude Desktop** with MCP configured
+4. **Gala Labs MCP** (https://github.com/trypeggy/instagram_dm_mcp) cloned and working
 
-### Steps
+### Installation
 
-1. **Clone this repository**
-
+1. **Clone this repository**:
    ```bash
-   git clone https://github.com/trypeggy/instagram_dm_mcp.git
-   cd instagram_dm_mcp
+   git clone <your-repo-url>
+   cd instagram-dm-concierge
    ```
 
-2. **Install dependencies**
-
-  - Using uv (recommended):
-    ```bash
-    uv sync
-    ```
-  - Using Pip:
+2. **Install Python dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
 
-3. **Configure Instagram credentials**
-
-   You have two options for providing your Instagram credentials:
-
-   **Option A: Environment Variables (Recommended)**
-   
-   **Quick Setup (Recommended):**
-   
-   Run the helper script:
-   
+3. **Install frontend dependencies**:
    ```bash
-   python setup_env.py
+   cd frontend
+   npm install
+   cd ..
    ```
    
-   This will interactively prompt you for your credentials and create the `.env` file securely.
+4. **Configure Claude Desktop MCP**:
+   - Ensure Gala Labs MCP is running in Claude Desktop
+   - Test Instagram login via MCP
    
-   **Manual Setup:**
+### Running the System
    
-   Create a `.env` file in the project root:
-   
+1. **Start everything with one command**:
    ```bash
-   cp env.example .env
-   ```
-   
-   Then edit `.env` with your actual credentials:
-   
-   ```
-   INSTAGRAM_USERNAME=your_instagram_username
-   INSTAGRAM_PASSWORD=your_instagram_password
-   ```
-   
-   **Option B: Command Line Arguments**
-   
-   You can still pass credentials as command line arguments (less secure).
-
-4. **Connect to the MCP server**
-
-   **For Claude Desktop:**
-   
-   Save this as `claude_desktop_config.json` in your Claude Desktop configuration directory at:
-
-   ```
-   ~/Library/Application Support/Claude/claude_desktop_config.json
+   bash start.sh
    ```
 
-   **For Cursor:**
-   
-   Save this as `mcp.json` in your Cursor configuration directory at:
+2. **Open your browser**:
+   - **Dashboard**: http://localhost:5173
+   - **API Docs**: http://localhost:8000/docs
+   - **Backend**: http://localhost:8000
 
-   ```
-   ~/.cursor/mcp.json
-   ```
-
-   **Configuration with Environment Variables (Recommended):**
-   - Using uv
-   
-   ```json
-   {
-     "mcpServers": {
-       "instagram_dms": {
-           "command": "uv",
-           "args": [
-             "run",
-             "--directory",
-             "PATH/TO/instagram_dm_mcp",
-             "python",
-             "src/mcp_server.py"
-           ]
-        }
-      }
-    }
+3. **Run the DM poller** (in a separate terminal):
+   ```bash
+   python tasks/dm_poller.py
    ```
 
-   - Using Python
-    ```json
-    {
-      "mcpServers": {
-        "instagram_dms": {
-          "command": "python",
-          "args": [
-            "{{PATH_TO_SRC}}/instagram_dm_mcp/src/ mcp_server.py"
-          ]
-        }
-      }
-    }
-    ```
+## 🎯 How It Works
 
-   **Configuration with Command Line Arguments:**
-   
-   ```json
-   {
-     "mcpServers": {
-       "instagram_dms": {
-         "command": "python",
-         "args": [
-           "{{PATH_TO_SRC}}/instagram_dm_mcp/src/mcp_server.py",
-           "--username",
-           "{{YOUR_INSTAGRAM_USERNAME}}",
-          "--password",
-          "{{YOUR_INSTAGRAM_PASSWORD}}"
-         ]
-       }
-     }
-   }
-   ```
+### 1. DM Polling
+- The `dm_poller.py` runs every 5 minutes
+- Fetches recent DMs using Gala Labs MCP
+- Classifies messages using keyword rules
+- Matches with response templates
+- Sends auto-replies and logs everything
 
-5. **Restart Claude Desktop / Cursor**
-   
-   Open Claude Desktop and you should now see the Instagram DM MCP as an available integration.
+### 2. Message Classification
+Messages are classified based on keywords:
+- **Pricing**: "price", "cost", "how much"
+- **Support**: "problem", "issue", "help", "broken"
+- **Greeting**: "hello", "hi", "hey"
+- **General**: Everything else
 
-   Or restart Cursor.
+### 3. Template System
+- Create templates with tags (pricing, support, etc.)
+- Templates are matched to classified messages
+- All responses are logged with metadata
+
+## 📊 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ping` | GET | Health check |
+| `/api/stats` | GET | Dashboard statistics |
+| `/api/templates` | GET/POST | Manage response templates |
+| `/api/templates/{id}` | PUT/DELETE | Update/delete templates |
+| `/api/targets` | GET/POST | Manage tracked users |
+| `/api/log` | GET | View interaction history |
+
+## 🎨 Dashboard Features
+
+- **Stats Overview**: Real-time metrics and performance data
+- **Template Manager**: Create, edit, and organize response templates
+- **Target Management**: Add/remove users to track for auto-responses
+- **Activity Log**: View all DM interactions and responses
+
+## 🔧 Configuration
+
+### Adding Templates
+1. Go to the Templates tab in the dashboard
+2. Click "Add Template"
+3. Set a tag (pricing, support, greeting, general)
+4. Write your response text
+5. Save and it's ready to use
+
+### Adding Targets
+1. Go to the Targets tab
+2. Add Instagram usernames to track
+3. Only DMs from these users will trigger auto-responses
+
+### Customizing Classification
+Edit the `classify()` function in `tasks/dm_poller.py` to add your own keywords and tags.
+
+## 🧪 Testing
+
+### Test the Backend
+```bash
+# Test health check
+curl http://localhost:8000/api/ping
+
+# Test stats endpoint
+curl http://localhost:8000/api/stats
+
+# Add a template
+curl -X POST http://localhost:8000/api/templates \
+  -H "Content-Type: application/json" \
+  -d '{"tag": "pricing", "text": "Our pricing starts at $99/month"}'
+```
+
+### Test the Poller
+```bash
+# Run poller manually
+python tasks/dm_poller.py
+
+# Check logs
+cat data/logs.json
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **MCP Connection Failed**
+   - Ensure Claude Desktop is running
+   - Check MCP configuration in Claude Desktop
+   - Verify Instagram credentials are set up
+
+2. **Frontend Not Loading**
+   - Check if Vite is running on port 5173
+   - Ensure all frontend dependencies are installed
+   - Check browser console for errors
+
+3. **Backend API Errors**
+   - Verify FastAPI is running on port 8000
+   - Check API documentation at http://localhost:8000/docs
+   - Review backend logs for errors
+
+4. **Poller Not Working**
+   - Ensure you have templates and targets configured
+   - Check poller logs for MCP errors
+   - Verify Instagram login is working
+
+### Debug Mode
+Run the poller with verbose logging:
+```bash
+python -u tasks/dm_poller.py
+```
+
+## 🔒 Privacy & Security
+
+- **Local Only**: All data stays on your machine
+- **No Cloud**: No external APIs or cloud services
+- **No Database**: Simple JSON file storage
+- **No Authentication**: Local machine access only
+- **File Locking**: Prevents data corruption during writes
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🙏 Acknowledgments
+
+- **Gala Labs** for the Instagram MCP server
+- **Anthropic** for Claude Desktop
+- **FastAPI** for the backend framework
+- **Vite + React** for the frontend
+
+## 📞 Support
+
+For issues and questions:
+1. Check the troubleshooting section
+2. Review the API documentation
+3. Open an issue on GitHub
+
 ---
 
-## Usage
-
-Below is a list of all available tools and what they do:
-
-| Tool Name                   | Description                                                                                   |
-|-----------------------------|-----------------------------------------------------------------------------------------------|
-| `send_message`              | Send an Instagram direct message to a user by username.                                       |
-| `send_photo_message`        | Send a photo as an Instagram direct message to a user by username.                            |
-| `send_video_message`        | Send a video as an Instagram direct message to a user by username.                            |
-| `list_chats`                | Get Instagram Direct Message threads (chats) from your account, with optional filters/limits.  |
-| `list_messages`             | Get messages from a specific Instagram Direct Message thread by thread ID. Now exposes `item_type` and shared post/reel info for each message. Use this to determine which download tool to use. |
-| `download_media_from_message` | Download a direct-uploaded photo or video from a DM message (not for shared posts/reels/clips). |
-| `download_shared_post_from_message` | Download media from a shared post, reel, or clip in a DM message (not for direct uploads). |
-| `list_media_messages`       | List all messages containing direct-uploaded media (photo/video) in a DM thread.              |
-| `mark_message_seen`         | Mark a specific message in an Instagram Direct Message thread as seen.                         |
-| `list_pending_chats`        | Get Instagram Direct Message threads from your pending inbox.                                  |
-| `search_threads`            | Search Instagram Direct Message threads by username or keyword.                                |
-| `get_thread_by_participants`| Get an Instagram Direct Message thread by participant user IDs.                                |
-| `get_thread_details`        | Get details and messages for a specific Instagram Direct Message thread by thread ID.          |
-| `get_user_id_from_username` | Get the Instagram user ID for a given username.                                                |
-| `get_username_from_user_id` | Get the Instagram username for a given user ID.                                                |
-| `get_user_info`             | Get information about a specific Instagram user by username.                        |
-| `search_users`              | Search for Instagram users by username                                              |
-| `get_user_stories`          | Get recent stories from a specific Instagram user by username.                                  |
-| `like_media`               | Like or unlike a specific media post by media ID.                                                       |
-| `get_user_followers`        | Get a list of followers for a specific Instagram user by username.                             |
-| `get_user_following`        | Get a list of users that a specific Instagram user is following by username.                   |
-| `get_user_posts`            | Get recent posts from a specific Instagram user by username.                                   |
-
-
----
-
-## Troubleshooting
-
-For additional Claude Desktop integration troubleshooting, see the [MCP documentation](https://modelcontextprotocol.io/quickstart/server#claude-for-desktop-integration-issues). The documentation includes helpful tips for checking logs and resolving common issues.
-
----
-
-## Feedback
-
-Your feedback will be massively appreciated. Please [tell us](mailto:tanmay@usegala.com) which features on that list you like to see next or request entirely new ones.
-
----
-
-## License
-
-This project is licensed under the MIT License.
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.12+-green.svg)
+**Ready to automate your Instagram DMs? Start with `bash start.sh` and enjoy your new DM concierge! 🚀** 

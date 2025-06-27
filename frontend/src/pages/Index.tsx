@@ -28,14 +28,11 @@ const Index = () => {
       setLoading(true);
       setError(null);
       
-      // TODO: Replace with actual API calls
+      // Use actual API calls
       const [targetsRes, templatesRes, statsRes] = await Promise.all([
-        // fetch('/api/targets').then(res => res.json()),
-        // fetch('/api/templates').then(res => res.json()),
-        // fetch('/api/stats').then(res => res.json())
-        Promise.resolve([]),
-        Promise.resolve([]),
-        Promise.resolve(null)
+        fetch('http://localhost:8000/api/targets').then(res => res.json()),
+        fetch('http://localhost:8000/api/templates').then(res => res.json()),
+        fetch('http://localhost:8000/api/stats').then(res => res.json())
       ]);
       
       setTargets(targetsRes);
@@ -51,10 +48,9 @@ const Index = () => {
 
   const loadStats = async () => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/stats');
-      // const newStats = await response.json();
-      // setStats(newStats);
+      const response = await fetch('http://localhost:8000/api/stats');
+      const newStats = await response.json();
+      setStats(newStats);
       console.log('Polling stats...');
     } catch (error) {
       console.error('Error polling stats:', error);
@@ -63,19 +59,12 @@ const Index = () => {
 
   const addTarget = async (targetData: Omit<Target, 'id' | 'createdAt'>) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/targets', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(targetData)
-      // });
-      // const newTarget = await response.json();
-      
-      const newTarget: Target = {
-        id: Date.now().toString(),
-        ...targetData,
-        createdAt: new Date().toISOString()
-      };
+      const response = await fetch('http://localhost:8000/api/targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(targetData)
+      });
+      const newTarget = await response.json();
       
       setTargets(prev => [...prev, newTarget]);
       console.log('Target added:', newTarget);
@@ -86,8 +75,7 @@ const Index = () => {
 
   const deleteTarget = async (targetId: string) => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/targets/${targetId}`, { method: 'DELETE' });
+      await fetch(`http://localhost:8000/api/targets/${targetId}`, { method: 'DELETE' });
       
       setTargets(prev => prev.filter(t => t.id !== targetId));
       console.log('Target deleted:', targetId);
@@ -98,12 +86,11 @@ const Index = () => {
 
   const updateTemplate = async (templateId: string, content: string) => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/templates/${templateId}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ content })
-      // });
+      await fetch(`http://localhost:8000/api/templates/${templateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
       
       setTemplates(prev => 
         prev.map(t => t.id === templateId ? { ...t, content } : t)
@@ -111,6 +98,22 @@ const Index = () => {
       console.log('Template updated:', templateId);
     } catch (error) {
       console.error('Error updating template:', error);
+    }
+  };
+
+  const createTemplate = async (templateData: Omit<Template, 'id'>) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(templateData)
+      });
+      const newTemplate = await response.json();
+      
+      setTemplates(prev => [...prev, newTemplate]);
+      console.log('Template created:', newTemplate);
+    } catch (error) {
+      console.error('Error creating template:', error);
     }
   };
 
@@ -297,6 +300,7 @@ const Index = () => {
             <TemplatesManager 
               templates={templates}
               onUpdate={updateTemplate}
+              onCreate={createTemplate}
             />
           </TabsContent>
         </Tabs>
