@@ -39,7 +39,7 @@ def send_message(username: str, message: str) -> Dict[str, Any]:
     if not username or not message:
         return {"success": False, "message": "Username and message must be provided."}
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = int(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
         dm = client.direct_send(message, [user_id])
@@ -69,7 +69,7 @@ def send_photo_message(username: str, photo_path: str) -> Dict[str, Any]:
         return {"success": False, "message": f"Photo file not found: {photo_path}"}
     
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = int(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
         
@@ -99,7 +99,7 @@ def send_video_message(username: str, video_path: str) -> Dict[str, Any]:
         return {"success": False, "message": f"Video file not found: {video_path}"}
     
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = int(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
 
@@ -179,7 +179,7 @@ def list_messages(thread_id: str, amount: int = 20) -> Dict[str, Any]:
     if not thread_id:
         return {"success": False, "message": "Thread ID must be provided."}
     try:
-        messages = client.direct_messages(thread_id, amount)
+        messages = client.direct_messages(int(thread_id), amount)
         result_msgs = []
         for m in messages:
             msg = m.dict() if hasattr(m, 'dict') else (m if isinstance(m, dict) else {})
@@ -281,7 +281,7 @@ def get_thread_by_participants(user_ids: List[int]) -> Dict[str, Any]:
         return {"success": False, "message": "user_ids must be a non-empty list of user IDs."}
     try:
         thread = client.direct_thread_by_participants(user_ids)
-        return {"success": True, "thread": thread.dict() if hasattr(thread, 'dict') else str(thread)}
+        return {"success": True, "thread": thread if isinstance(thread, dict) else str(thread)}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -299,8 +299,8 @@ def get_thread_details(thread_id: str, amount: int = 20) -> Dict[str, Any]:
     if not thread_id:
         return {"success": False, "message": "Thread ID must be provided."}
     try:
-        thread = client.direct_thread(thread_id, amount)
-        return {"success": True, "thread": thread.dict() if hasattr(thread, 'dict') else str(thread)}
+        thread = client.direct_thread(int(thread_id), amount)
+        return {"success": True, "thread": thread if isinstance(thread, dict) else str(thread)}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -317,7 +317,7 @@ def get_user_id_from_username(username: str) -> Dict[str, Any]:
     if not username:
         return {"success": False, "message": "Username must be provided."}
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = str(client.user_id_from_username(username))
         if user_id:
             return {"success": True, "user_id": user_id}
         else:
@@ -402,9 +402,9 @@ def check_user_online_status(usernames: List[str]) -> Dict[str, Any]:
         # Get user IDs for the usernames
         for username in usernames:
             try:
-                user_id = client.user_id_from_username(username)
+                user_id = str(client.user_id_from_username(username))
                 if user_id:
-                    user_ids.append(int(user_id))
+                    user_ids.append(user_id)
                     username_to_id[user_id] = username
             except:
                 continue
@@ -471,7 +471,7 @@ def get_user_stories(username: str) -> Dict[str, Any]:
         return {"success": False, "message": "Username must be provided."}
     
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = str(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
         
@@ -516,7 +516,7 @@ def like_media(media_url: str, like: bool = True) -> Dict[str, Any]:
         return {"success": False, "message": "Media URL must be provided."}
     
     try:
-        media_pk = client.media_pk_from_url(media_url)
+        media_pk = str(client.media_pk_from_url(media_url))
         if not media_pk:
             return {"success": False, "message": "Invalid media URL or post not found."}
         
@@ -549,7 +549,7 @@ def get_user_followers(username: str, count: int = 20) -> Dict[str, Any]:
         return {"success": False, "message": "Username must be provided."}
     
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = str(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
         
@@ -585,7 +585,7 @@ def get_user_following(username: str, count: int = 20) -> Dict[str, Any]:
         return {"success": False, "message": "Username must be provided."}
     
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = str(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
         
@@ -621,7 +621,7 @@ def get_user_posts(username: str, count: int = 12) -> Dict[str, Any]:
         return {"success": False, "message": "Username must be provided."}
     
     try:
-        user_id = client.user_id_from_username(username)
+        user_id = str(client.user_id_from_username(username))
         if not user_id:
             return {"success": False, "message": f"User '{username}' not found."}
         
@@ -659,16 +659,16 @@ def _download_single_media(media, download_path: str) -> str:
     """Download a single media item and return the file path."""
     media_type = media.media_type
     if media_type == 1:  # Photo
-        return str(client.photo_download(media.pk, download_path))
+        return str(client.photo_download(int(media.pk), Path(download_path)))
     elif media_type == 2:  # Video
-        return str(client.video_download(media.pk, download_path))
+        return str(client.video_download(int(media.pk), Path(download_path)))
     else:
         raise ValueError(f"Unsupported media type: {media_type}")
 
 
 def _find_message_in_thread(thread_id: str, message_id: str):
     """Find a specific message in a thread."""
-    messages = client.direct_messages(thread_id, 100)
+    messages = client.direct_messages(int(thread_id), 100)
     return next((m for m in messages if str(m.id) == message_id), None)
 
 
@@ -683,7 +683,7 @@ def list_media_messages(thread_id: str, limit: int = 100) -> Dict[str, Any]:
     """
     try:
         limit = min(limit, 200)
-        messages = client.direct_messages(thread_id, limit)
+        messages = client.direct_messages(int(thread_id), limit)
         media_messages = []
         for message in messages:
             if message.media:
@@ -776,17 +776,17 @@ def download_shared_post_from_message(message_id: str, thread_id: str, download_
             return {"success": False, "message": "This message does not contain a supported shared post/reel/clip"}
         # Download using Instagrapi
         try:
-            media_pk = client.media_pk_from_url(shared_url)
+            media_pk = str(client.media_pk_from_url(shared_url))
             media = client.media_info(media_pk)
             if media.media_type == 1:
-                file_path = str(client.photo_download(media_pk, download_path))
+                file_path = str(client.photo_download(int(media_pk), Path(download_path)))
                 media_type = "photo"
             elif media.media_type == 2:
-                file_path = str(client.video_download(media_pk, download_path))
+                file_path = str(client.video_download(int(media_pk), Path(download_path)))
                 media_type = "video"
             elif media.media_type == 8:  # album
                 # Download all items in album
-                album_paths = client.album_download(media_pk, download_path)
+                album_paths = client.album_download(int(media_pk), Path(download_path))
                 file_path = str(album_paths)
                 media_type = "album"
             else:
