@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,8 @@ import { MessageCircle, Clock, TrendingUp, Activity, Zap } from 'lucide-react';
 import { Target, Template, Stats } from '@/types/dashboard';
 import TargetsManager from '@/components/TargetsManager';
 import TemplatesManager from '@/components/TemplatesManager';
+import { toast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 
 const Index = () => {
   const [targets, setTargets] = useState<Target[]>([]);
@@ -13,6 +15,7 @@ const Index = () => {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -30,9 +33,9 @@ const Index = () => {
       
       // Use actual API calls
       const [targetsRes, templatesRes, statsRes] = await Promise.all([
-        fetch('http://localhost:8000/api/targets').then(res => res.json()),
-        fetch('http://localhost:8000/api/templates').then(res => res.json()),
-        fetch('http://localhost:8000/api/stats').then(res => res.json())
+        fetch('/api/targets').then(res => res.json()),
+        fetch('/api/templates').then(res => res.json()),
+        fetch('/api/stats').then(res => res.json())
       ]);
       
       setTargets(targetsRes);
@@ -48,7 +51,7 @@ const Index = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/stats');
+      const response = await fetch('/api/stats');
       const newStats = await response.json();
       setStats(newStats);
       console.log('Polling stats...');
@@ -59,7 +62,7 @@ const Index = () => {
 
   const addTarget = async (targetData: Omit<Target, 'id' | 'createdAt'>) => {
     try {
-      const response = await fetch('http://localhost:8000/api/targets', {
+      const response = await fetch('/api/targets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(targetData)
@@ -74,19 +77,51 @@ const Index = () => {
   };
 
   const deleteTarget = async (targetId: string) => {
+    const targetToDelete = targets.find(t => t.id === targetId);
+    if (!targetToDelete) return;
+    setTargets(prev => prev.filter(t => t.id !== targetId));
     try {
-      await fetch(`http://localhost:8000/api/targets/${targetId}`, { method: 'DELETE' });
-      
-      setTargets(prev => prev.filter(t => t.id !== targetId));
-      console.log('Target deleted:', targetId);
+      await fetch(`/api/targets/${targetId}`, { method: 'DELETE' });
     } catch (error) {
       console.error('Error deleting target:', error);
     }
+    // Show undo toast, capture targetToDelete in closure
+    let undoTimeout: NodeJS.Timeout | null = null;
+    const { dismiss } = toast({
+      title: 'Target deleted',
+      description: `"${targetToDelete.username}" was deleted.`,
+      action: (
+        <ToastAction altText="Undo" onClick={async () => {
+          if (undoTimeout) clearTimeout(undoTimeout);
+          try {
+            const response = await fetch('/api/targets', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: targetToDelete.username,
+                templateTag: targetToDelete.templateTag
+              })
+            });
+            const restored = await response.json();
+            setTargets(prev => [...prev, restored]);
+          } catch (err) {
+            console.error('Error restoring target:', err);
+          }
+          dismiss();
+        }}>Undo</ToastAction>
+      ),
+    });
+    // Auto-clear undo after 5 seconds
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    undoTimeout = setTimeout(() => {
+      dismiss();
+    }, 5000);
+    undoTimeoutRef.current = undoTimeout;
   };
 
   const updateTemplate = async (templateId: string, content: string) => {
     try {
-      await fetch(`http://localhost:8000/api/templates/${templateId}`, {
+      await fetch(`/api/templates/${templateId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content })
@@ -103,7 +138,7 @@ const Index = () => {
 
   const createTemplate = async (templateData: Omit<Template, 'id'>) => {
     try {
-      const response = await fetch('http://localhost:8000/api/templates', {
+      const response = await fetch('/api/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(templateData)
@@ -114,6 +149,64 @@ const Index = () => {
       console.log('Template created:', newTemplate);
     } catch (error) {
       console.error('Error creating template:', error);
+    }
+  };
+
+  const deleteTemplate = async (templateId: string) => {
+    const templateToDelete = templates.find(t => t.id === templateId);
+    if (!templateToDelete) return;
+    setTemplates(prev => prev.filter(t => t.id !== templateId));
+    try {
+      await fetch(`/api/templates/${templateId}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('Error deleting template:', error);
+    }
+    // Show undo toast, capture templateToDelete in closure
+    let undoTimeout: NodeJS.Timeout | null = null;
+    const { dismiss } = toast({
+      title: 'Template deleted',
+      description: `"${templateToDelete.title}" was deleted.`,
+      action: (
+        <ToastAction altText="Undo" onClick={async () => {
+          if (undoTimeout) clearTimeout(undoTimeout);
+          try {
+            const response = await fetch('/api/templates', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                intent: templateToDelete.intent,
+                title: templateToDelete.title,
+                content: templateToDelete.content
+              })
+            });
+            const restored = await response.json();
+            setTemplates(prev => [...prev, restored]);
+          } catch (err) {
+            console.error('Error restoring template:', err);
+          }
+          dismiss();
+        }}>Undo</ToastAction>
+      ),
+    });
+    // Auto-clear undo after 5 seconds
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    undoTimeout = setTimeout(() => {
+      dismiss();
+    }, 5000);
+    undoTimeoutRef.current = undoTimeout;
+  };
+
+  const runPollerOnce = async () => {
+    try {
+      const response = await fetch('/api/poller/run-once', { method: 'POST' });
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: 'Poller ran', description: data.output || 'Poller ran successfully.' });
+      } else {
+        toast({ title: 'Poller error', description: data.error || 'Poller failed.' });
+      }
+    } catch (err) {
+      toast({ title: 'Poller error', description: String(err) });
     }
   };
 
@@ -163,6 +256,13 @@ const Index = () => {
                 <Zap className="w-3 h-3 mr-1" />
                 Claude + MCP
               </Badge>
+              <button
+                onClick={runPollerOnce}
+                className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                title="Run Poller Now"
+              >
+                Run Poller Now
+              </button>
             </div>
           </div>
         </div>
@@ -301,6 +401,7 @@ const Index = () => {
               templates={templates}
               onUpdate={updateTemplate}
               onCreate={createTemplate}
+              onDelete={deleteTemplate}
             />
           </TabsContent>
         </Tabs>

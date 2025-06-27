@@ -1,4 +1,3 @@
-
 export interface Target {
   id: string;
   username: string;
@@ -11,6 +10,7 @@ export interface Template {
   intent: string;
   title: string;
   content: string;
+  tags: string[];
 }
 
 export interface Stats {

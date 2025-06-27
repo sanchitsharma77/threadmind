@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,7 +117,7 @@ const TargetsManager = ({ targets, onAdd, onDelete }: TargetsManagerProps) => {
                       </div>
                     </div>
                     <Badge className={getTagColor(target.templateTag)}>
-                      {target.templateTag.replace('_', ' ').toUpperCase()}
+                      {(target.templateTag ? target.templateTag.replace('_', ' ').toUpperCase() : 'UNKNOWN')}
                     </Badge>
                     <Badge className="bg-green-50 text-green-600 border-green-200">
                       Active

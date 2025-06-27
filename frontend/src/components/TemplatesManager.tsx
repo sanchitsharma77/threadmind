@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,17 +11,39 @@ interface TemplatesManagerProps {
   templates: Template[];
   onUpdate: (templateId: string, content: string) => void;
   onCreate?: (template: Omit<Template, 'id'>) => void;
+  onDelete?: (templateId: string) => void;
 }
 
-const TemplatesManager = ({ templates, onUpdate, onCreate }: TemplatesManagerProps) => {
+const TemplatesManager = ({ templates, onUpdate, onCreate, onDelete }: TemplatesManagerProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     intent: '',
     title: '',
-    content: ''
+    content: '',
+    tags: []
   });
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+
+  useEffect(() => {
+    fetch('/api/tags')
+      .then(res => res.json())
+      .then(setTags)
+      .catch(() => setTags([]));
+  }, [isCreating]);
+
+  const handleAddTag = async () => {
+    if (!newTag.trim() || tags.includes(newTag.trim())) return;
+    await fetch('/api/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: newTag.trim() })
+    });
+    setTags(prev => [...prev, newTag.trim()]);
+    setNewTag('');
+  };
 
   const handleEditStart = (template: Template) => {
     setEditingId(template.id);
@@ -43,20 +65,20 @@ const TemplatesManager = ({ templates, onUpdate, onCreate }: TemplatesManagerPro
 
   const handleCreateStart = () => {
     setIsCreating(true);
-    setNewTemplate({ intent: '', title: '', content: '' });
+    setNewTemplate({ intent: '', title: '', content: '', tags: [] });
   };
 
   const handleCreateSave = () => {
     if (newTemplate.intent.trim() && newTemplate.title.trim() && newTemplate.content.trim() && onCreate) {
-      onCreate(newTemplate);
+      onCreate({ ...newTemplate, tags: [] });
       setIsCreating(false);
-      setNewTemplate({ intent: '', title: '', content: '' });
+      setNewTemplate({ intent: '', title: '', content: '', tags: [] });
     }
   };
 
   const handleCreateCancel = () => {
     setIsCreating(false);
-    setNewTemplate({ intent: '', title: '', content: '' });
+    setNewTemplate({ intent: '', title: '', content: '', tags: [] });
   };
 
   const getIntentColor = (intent: string) => {
@@ -96,12 +118,27 @@ const TemplatesManager = ({ templates, onUpdate, onCreate }: TemplatesManagerPro
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Intent</label>
-                <Input
-                  value={newTemplate.intent}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, intent: e.target.value })}
-                  placeholder="e.g., greeting, complaint, pricing"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Intent/Tag</label>
+                <div className="flex space-x-2">
+                  <select
+                    className="border rounded px-2 py-1 w-full"
+                    value={newTemplate.intent}
+                    onChange={e => setNewTemplate({ ...newTemplate, intent: e.target.value })}
+                  >
+                    <option value="">Select tag</option>
+                    {tags.map(tag => (
+                      <option key={tag} value={tag}>{tag}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="border rounded px-2 py-1"
+                    type="text"
+                    placeholder="New tag"
+                    value={newTag}
+                    onChange={e => setNewTag(e.target.value)}
+                  />
+                  <Button size="sm" onClick={handleAddTag} disabled={!newTag.trim()}>Add</Button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -164,17 +201,30 @@ const TemplatesManager = ({ templates, onUpdate, onCreate }: TemplatesManagerPro
                       {template.intent.replace('_', ' ').toUpperCase()}
                     </Badge>
                   </div>
-                  {editingId !== template.id && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditStart(template)}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    >
-                      <Edit className="w-4 h-4 mr-1" />
-                      Edit
-                    </Button>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {editingId !== template.id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditStart(template)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(template.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={editingId === template.id}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

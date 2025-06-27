@@ -13,6 +13,7 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 TEMPLATES_FILE = DATA_DIR / "templates.json"
 TARGETS_FILE = DATA_DIR / "targets.json"
 LOG_FILE = DATA_DIR / "logs.json"
+TAGS_FILE = DATA_DIR / "tags.json"
 
 def _read_json(path):
     with FileLock(str(path) + ".lock"):
@@ -28,7 +29,11 @@ def _write_json(path, data):
 
 # --- Templates CRUD ---
 def get_templates():
-    return _read_json(TEMPLATES_FILE)
+    templates = _read_json(TEMPLATES_FILE)
+    for t in templates:
+        if 'tags' not in t:
+            t['tags'] = []
+    return templates
 
 def add_template(template):
     templates = _read_json(TEMPLATES_FILE)
@@ -37,6 +42,8 @@ def add_template(template):
     for field in ["intent", "title", "content"]:
         if field not in template:
             template[field] = ""
+    if 'tags' not in template:
+        template['tags'] = []
     templates.append(template)
     _write_json(TEMPLATES_FILE, templates)
     return template
@@ -45,7 +52,9 @@ def update_template(template_id, template):
     templates = _read_json(TEMPLATES_FILE)
     for idx, t in enumerate(templates):
         if int(t.get("id")) == int(template_id):
-            templates[idx] = {**t, **template, "id": int(template_id)}
+            # Always keep tags, or set to [] if missing
+            tags = template.get('tags', t.get('tags', []))
+            templates[idx] = {**t, **template, "id": int(template_id), "tags": tags}
             _write_json(TEMPLATES_FILE, templates)
             return templates[idx]
     raise Exception("Template not found")
@@ -93,6 +102,24 @@ def get_stats():
         "total_messages": responses_sent,
         "success_rate": round((responses_sent - unresolved) / responses_sent * 100, 1) if responses_sent > 0 else 0
     }
+
+# --- Tags CRUD ---
+def get_tags():
+    tags = _read_json(TAGS_FILE)
+    return tags
+
+def add_tag(tag):
+    tags = _read_json(TAGS_FILE)
+    if tag not in tags:
+        tags.append(tag)
+        _write_json(TAGS_FILE, tags)
+    return tag
+
+def delete_tag(tag):
+    tags = _read_json(TAGS_FILE)
+    tags = [t for t in tags if t != tag]
+    _write_json(TAGS_FILE, tags)
+    return {"deleted": tag}
 
 # --- MCP Tool Wrappers ---
 # These functions will be called by Claude Desktop MCP integration

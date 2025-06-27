@@ -1,26 +1,16 @@
 [
   {
-    "id": 1,
-    "intent": "complaint",
-    "title": "Complaint Resolution",
-    "content": "Hi {username}, I sincerely apologize for any inconvenience you've experienced. 🙏 Your feedback is important to us and I want to make this right. Can you please share more details so I can assist you properly?"
-  },
-  {
-    "id": 2,
-    "intent": "pricing",
-    "title": "Pricing Information",
-    "content": "Hi {username}! Our pricing starts at $99/month. We offer flexible plans to fit your needs. Would you like to schedule a call to discuss options?"
-  },
-  {
     "id": 3,
     "intent": "greeting",
     "title": "Welcome Message",
-    "content": "Hello {username}! 👋 Thanks for reaching out. How can we help you today?"
+    "content": "Hello {username}! \ud83d\udc4b Thanks for reaching out. How can we help you today?",
+    "tags": []
   },
   {
+    "intent": "pricing",
+    "title": "Pricing Information",
+    "content": "Hi {username}! Our pricing starts at $99/month. We offer flexible plans to fit your needs. Would you like to schedule a call to discuss options?",
     "id": 4,
-    "intent": "general",
-    "title": "General Response",
-    "content": "Hi {username}! Thanks for your message. Let me know if you need any assistance!"
+    "tags": []
   }
 ]

@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from utils.mcp_client import (
     get_templates, add_template, update_template, delete_template,
-    get_targets, add_target, get_log, get_stats
+    get_targets, add_target, get_log, get_stats,
+    get_tags, add_tag, delete_tag
 )
 from pydantic import BaseModel
+import subprocess
 
 router = APIRouter()
 
@@ -14,6 +16,9 @@ class TemplateModel(BaseModel):
 
 class TargetModel(BaseModel):
     username: str
+
+class TagModel(BaseModel):
+    tag: str
 
 @router.get("/ping")
 def ping():
@@ -50,3 +55,25 @@ def post_target(target: TargetModel):
 @router.get("/log")
 def log():
     return get_log()
+
+@router.get("/tags")
+def tags():
+    return get_tags()
+
+@router.post("/tags")
+def post_tag(tag: TagModel):
+    return add_tag(tag.tag)
+
+@router.delete("/tags/{tag}")
+def delete_tag_route(tag: str):
+    return delete_tag(tag)
+
+@router.post("/poller/run-once")
+def run_poller_once():
+    try:
+        result = subprocess.run([
+            "python", "tasks/run_poller_once.py"
+        ], capture_output=True, text=True, check=True)
+        return {"success": True, "output": result.stdout}
+    except subprocess.CalledProcessError as e:
+        return {"success": False, "error": e.stderr}
