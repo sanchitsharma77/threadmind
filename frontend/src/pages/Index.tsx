@@ -2,20 +2,20 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Clock, TrendingUp, Activity, Zap } from 'lucide-react';
-import { Target, Template, Stats } from '@/types/dashboard';
-import TargetsManager from '@/components/TargetsManager';
-import TemplatesManager from '@/components/TemplatesManager';
+import { MessageCircle, Clock, TrendingUp, Activity, Zap, Search, Download, Filter, Copy, Send } from 'lucide-react';
+import { Stats } from '@/types/dashboard';
 import { toast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 
 const Index = () => {
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [filteredLogs, setFilteredLogs] = useState<any[]>([]);
 
   // Load initial data
   useEffect(() => {
@@ -32,14 +32,10 @@ const Index = () => {
       setError(null);
       
       // Use actual API calls
-      const [targetsRes, templatesRes, statsRes] = await Promise.all([
-        fetch('/api/targets').then(res => res.json()),
-        fetch('/api/templates').then(res => res.json()),
+      const [statsRes] = await Promise.all([
         fetch('/api/stats').then(res => res.json())
       ]);
       
-      setTargets(targetsRes);
-      setTemplates(templatesRes);
       setStats(statsRes);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -60,154 +56,123 @@ const Index = () => {
     }
   };
 
-  const addTarget = async (targetData: Omit<Target, 'id' | 'createdAt'>) => {
+  const loadLogs = async () => {
     try {
-      const response = await fetch('/api/targets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(targetData)
-      });
-      const newTarget = await response.json();
-      
-      setTargets(prev => [...prev, newTarget]);
-      console.log('Target added:', newTarget);
+      setLogsLoading(true);
+      const response = await fetch('/api/logs');
+      const logsData = await response.json();
+      setLogs(logsData);
+      filterLogs();
     } catch (error) {
-      console.error('Error adding target:', error);
+      console.error('Error loading logs:', error);
+    } finally {
+      setLogsLoading(false);
     }
   };
 
-  const deleteTarget = async (targetId: string) => {
-    const targetToDelete = targets.find(t => t.id === targetId);
-    if (!targetToDelete) return;
-    setTargets(prev => prev.filter(t => t.id !== targetId));
-    try {
-      await fetch(`/api/targets/${targetId}`, { method: 'DELETE' });
-    } catch (error) {
-      console.error('Error deleting target:', error);
-    }
-    // Show undo toast, capture targetToDelete in closure
-    let undoTimeout: NodeJS.Timeout | null = null;
-    const { dismiss } = toast({
-      title: 'Target deleted',
-      description: `"${targetToDelete.username}" was deleted.`,
-      action: (
-        <ToastAction altText="Undo" onClick={async () => {
-          if (undoTimeout) clearTimeout(undoTimeout);
-          try {
-            const response = await fetch('/api/targets', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                username: targetToDelete.username,
-                templateTag: targetToDelete.templateTag
-              })
-            });
-            const restored = await response.json();
-            setTargets(prev => [...prev, restored]);
-          } catch (err) {
-            console.error('Error restoring target:', err);
-          }
-          dismiss();
-        }}>Undo</ToastAction>
-      ),
-    });
-    // Auto-clear undo after 5 seconds
-    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
-    undoTimeout = setTimeout(() => {
-      dismiss();
-    }, 5000);
-    undoTimeoutRef.current = undoTimeout;
-  };
-
-  const updateTemplate = async (templateId: string, content: string) => {
-    try {
-      await fetch(`/api/templates/${templateId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-      });
-      
-      setTemplates(prev => 
-        prev.map(t => t.id === templateId ? { ...t, content } : t)
+  const filterLogs = () => {
+    let filtered = [...logs];
+    
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(log => 
+        log.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.original_message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.suggestion?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      console.log('Template updated:', templateId);
-    } catch (error) {
-      console.error('Error updating template:', error);
     }
-  };
-
-  const createTemplate = async (templateData: Omit<Template, 'id'>) => {
-    try {
-      const response = await fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templateData)
-      });
-      const newTemplate = await response.json();
+    
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
       
-      setTemplates(prev => [...prev, newTemplate]);
-      console.log('Template created:', newTemplate);
-    } catch (error) {
-      console.error('Error creating template:', error);
+      filtered = filtered.filter(log => {
+        if (!log.timestamp) return false;
+        const logDate = new Date(log.timestamp);
+        
+        switch (dateFilter) {
+          case 'today':
+            return logDate >= today;
+          case 'yesterday':
+            return logDate >= yesterday && logDate < today;
+          case 'week':
+            return logDate >= weekAgo;
+          default:
+            return true;
+        }
+      });
     }
+    
+    setFilteredLogs(filtered);
   };
 
-  const deleteTemplate = async (templateId: string) => {
-    const templateToDelete = templates.find(t => t.id === templateId);
-    if (!templateToDelete) return;
-    setTemplates(prev => prev.filter(t => t.id !== templateId));
-    try {
-      await fetch(`/api/templates/${templateId}`, { method: 'DELETE' });
-    } catch (error) {
-      console.error('Error deleting template:', error);
-    }
-    // Show undo toast, capture templateToDelete in closure
-    let undoTimeout: NodeJS.Timeout | null = null;
-    const { dismiss } = toast({
-      title: 'Template deleted',
-      description: `"${templateToDelete.title}" was deleted.`,
-      action: (
-        <ToastAction altText="Undo" onClick={async () => {
-          if (undoTimeout) clearTimeout(undoTimeout);
-          try {
-            const response = await fetch('/api/templates', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                intent: templateToDelete.intent,
-                title: templateToDelete.title,
-                content: templateToDelete.content
-              })
-            });
-            const restored = await response.json();
-            setTemplates(prev => [...prev, restored]);
-          } catch (err) {
-            console.error('Error restoring template:', err);
-          }
-          dismiss();
-        }}>Undo</ToastAction>
-      ),
-    });
-    // Auto-clear undo after 5 seconds
-    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
-    undoTimeout = setTimeout(() => {
-      dismiss();
-    }, 5000);
-    undoTimeoutRef.current = undoTimeout;
+  useEffect(() => {
+    filterLogs();
+  }, [logs, searchTerm, dateFilter]);
+
+  const exportLogs = () => {
+    const csvContent = [
+      ['Timestamp', 'Username', 'Original Message', 'Reply']
+    ].concat(
+      filteredLogs.map(log => [
+        log.timestamp ? new Date(log.timestamp).toISOString() : '',
+        log.username || '',
+        log.original_message || '',
+        log.suggestion || ''
+      ])
+    ).map(row => row.map(field => `"${field.replace(/"/g, '""')}"`).join(',')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `logs_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
-  const runPollerOnce = async () => {
+  const copyToClipboard = async (text: string, label: string) => {
     try {
-      const response = await fetch('/api/poller/run-once', { method: 'POST' });
-      const data = await response.json();
-      if (data.success) {
-        toast({ title: 'Poller ran', description: data.output || 'Poller ran successfully.' });
-      } else {
-        toast({ title: 'Poller error', description: data.error || 'Poller failed.' });
-      }
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: 'Copied!',
+        description: `${label} copied to clipboard`,
+      });
     } catch (err) {
-      toast({ title: 'Poller error', description: String(err) });
+      console.error('Failed to copy:', err);
+      toast({
+        title: 'Copy failed',
+        description: 'Please copy manually',
+        variant: 'destructive',
+      });
     }
+  };
+
+  const getMCPCommands = (log: any) => {
+    const commands = {
+      fetchMessages: `list_messages("${log.thread_id || 'THREAD_ID'}")`,
+      sendReply: `send_message("${log.username || 'USERNAME'}", "${log.suggestion || 'REPLY_TEXT'}")`,
+      markSeen: `mark_message_seen("${log.thread_id || 'THREAD_ID'}")`,
+    };
+    return commands;
+  };
+
+  const copyAllMCPCommands = () => {
+    const allCommands = filteredLogs.map((log, index) => {
+      const commands = getMCPCommands(log);
+      return `# ${log.username || 'Unknown'} - ${log.timestamp ? new Date(log.timestamp).toLocaleString() : ''}
+${commands.fetchMessages}
+${commands.sendReply}
+${commands.markSeen}
+`;
+    }).join('\n');
+
+    copyToClipboard(allCommands, 'All MCP Commands');
   };
 
   if (loading) {
@@ -244,8 +209,8 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">DM Automation Dashboard</h1>
-              <p className="text-gray-600 mt-1">Manage your Instagram DM automation, templates, and view performance stats</p>
+              <h1 className="text-2xl font-bold text-gray-900">AI-Powered DM Automation</h1>
+              <p className="text-gray-600 mt-1">Privacy-first Instagram DM assistant with Claude Desktop integration</p>
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
@@ -256,13 +221,6 @@ const Index = () => {
                 <Zap className="w-3 h-3 mr-1" />
                 Claude + MCP
               </Badge>
-              <button
-                onClick={runPollerOnce}
-                className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                title="Run Poller Now"
-              >
-                Run Poller Now
-              </button>
             </div>
           </div>
         </div>
@@ -270,10 +228,9 @@ const Index = () => {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs defaultValue="stats" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
             <TabsTrigger value="stats">Stats Overview</TabsTrigger>
-            <TabsTrigger value="targets">Targets</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="logs" onClick={loadLogs}>Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="stats" className="space-y-6">
@@ -352,10 +309,10 @@ const Index = () => {
                           <div className="flex items-center space-x-3">
                             <div className={`px-2 py-1 rounded text-xs font-medium uppercase ${
                               intent === 'question' ? 'bg-green-100 text-green-800' :
-                              intent === 'cold_lead' ? 'bg-blue-100 text-blue-800' :
-                              intent === 'sales_inquiry' ? 'bg-orange-100 text-orange-800' :
+                              intent === 'pricing_inquiry' ? 'bg-blue-100 text-blue-800' :
+                              intent === 'sales_lead' ? 'bg-orange-100 text-orange-800' :
                               intent === 'complaint' ? 'bg-red-100 text-red-800' :
-                              intent === 'VIP' ? 'bg-purple-100 text-purple-800' :
+                              intent === 'greeting' ? 'bg-purple-100 text-purple-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
                               {intent.replace('_', ' ')}
@@ -365,10 +322,10 @@ const Index = () => {
                           <div className="flex items-center space-x-4">
                             <div className={`h-2 rounded-full ${
                               intent === 'question' ? 'bg-green-500' :
-                              intent === 'cold_lead' ? 'bg-blue-500' :
-                              intent === 'sales_inquiry' ? 'bg-orange-500' :
+                              intent === 'pricing_inquiry' ? 'bg-blue-500' :
+                              intent === 'sales_lead' ? 'bg-orange-500' :
                               intent === 'complaint' ? 'bg-red-500' :
-                              intent === 'VIP' ? 'bg-purple-500' :
+                              intent === 'greeting' ? 'bg-purple-500' :
                               'bg-gray-500'
                             }`} style={{ width: `${barWidth}px` }} />
                             <div className="text-right">
@@ -388,21 +345,136 @@ const Index = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="targets">
-            <TargetsManager 
-              targets={targets}
-              onAdd={addTarget}
-              onDelete={deleteTarget}
-            />
-          </TabsContent>
+          <TabsContent value="logs">
+            <Card className="bg-white">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Recent Logs</CardTitle>
+                    <CardDescription>Last 50 interactions with AI-powered suggestions</CardDescription>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={copyAllMCPCommands}
+                      className="flex items-center space-x-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                      disabled={filteredLogs.length === 0}
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span>Copy All MCP</span>
+                    </button>
+                    <button
+                      onClick={exportLogs}
+                      className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                      disabled={filteredLogs.length === 0}
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Export CSV</span>
+                    </button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search by username or message..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="week">Last 7 Days</option>
+                  </select>
+                </div>
 
-          <TabsContent value="templates">
-            <TemplatesManager 
-              templates={templates}
-              onUpdate={updateTemplate}
-              onCreate={createTemplate}
-              onDelete={deleteTemplate}
-            />
+                {/* Results count */}
+                <div className="text-sm text-gray-600 mb-4">
+                  Showing {filteredLogs.length} of {logs.length} logs
+                </div>
+
+                {logsLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading logs...</div>
+                ) : filteredLogs.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    {logs.length === 0 ? 'No logs found.' : 'No logs match your filters.'}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="px-2 py-1 text-left font-medium">Time</th>
+                          <th className="px-2 py-1 text-left font-medium">User</th>
+                          <th className="px-2 py-1 text-left font-medium">Question</th>
+                          <th className="px-2 py-1 text-left font-medium">Reply</th>
+                          <th className="px-2 py-1 text-left font-medium">MCP Commands</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredLogs.map((log, i) => {
+                          const commands = getMCPCommands(log);
+                          return (
+                            <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                              <td className="px-2 py-1 whitespace-nowrap text-gray-600">
+                                {log.timestamp ? new Date(log.timestamp).toLocaleString() : ''}
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap font-medium">
+                                {log.username || ''}
+                              </td>
+                              <td className="px-2 py-1 max-w-xs truncate" title={log.original_message}>
+                                {log.original_message}
+                              </td>
+                              <td className="px-2 py-1 max-w-xs truncate" title={log.suggestion}>
+                                {log.suggestion}
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => copyToClipboard(commands.fetchMessages, 'Fetch Messages Command')}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                                    title="Copy command to fetch messages from this thread"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    Fetch
+                                  </button>
+                                  <button
+                                    onClick={() => copyToClipboard(commands.sendReply, 'Send Reply Command')}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
+                                    title="Copy command to send the suggested reply"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    Send
+                                  </button>
+                                  <button
+                                    onClick={() => copyToClipboard(commands.markSeen, 'Mark Seen Command')}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
+                                    title="Copy command to mark messages as seen"
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                    Seen
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

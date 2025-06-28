@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 
-app = FastAPI(title="Instagram DM Concierge", version="1.0.0")
+app = FastAPI(title="AI-Powered DM Automation", version="1.0.0")
 
 # Add CORS middleware
 app.add_middleware(

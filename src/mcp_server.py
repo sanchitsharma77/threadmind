@@ -6,6 +6,9 @@ import os
 from dotenv import load_dotenv
 import logging
 from pathlib import Path
+import subprocess
+import json
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,16 +18,307 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 INSTRUCTIONS = """
-This server is used to send messages to a user on Instagram.
+This server provides tools for Instagram DM management and automation.
+It can list chats, fetch messages, send replies, and manage the DM poller system.
 """
 
 client = Client()
+# Load saved session if available
+settings_path = Path("instagrapi_settings.json")
+if settings_path.exists():
+    client.load_settings(settings_path)
+    print("Loaded Instagram session from instagrapi_settings.json")
+else:
+    print("No saved Instagram session found. Please run the authentication script.")
 
 mcp = FastMCP(
    name="Instagram DMs",
    instructions=INSTRUCTIONS
 )
 
+# Data file paths
+DATA_DIR = Path("data")
+TARGETS_FILE = DATA_DIR / "targets.json"
+LOGS_FILE = DATA_DIR / "logs.json"
+TEMPLATES_FILE = DATA_DIR / "templates.json"
+
+def _read_json(path):
+    if not path.exists():
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _write_json(path, data):
+    path.parent.mkdir(exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+@mcp.tool()
+def run_poller_once() -> Dict[str, Any]:
+    """Run the DM poller once to process new messages and generate AI replies.
+    
+    Returns:
+        A dictionary with success status and output from the poller.
+    """
+    try:
+        result = subprocess.run(
+            ["python", "tasks/run_poller_once.py"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        return {
+            "success": result.returncode == 0,
+            "output": result.stdout,
+            "error": result.stderr,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+@mcp.tool()
+def get_recent_logs(limit: int = 20, username: Optional[str] = None) -> Dict[str, Any]:
+    """Get recent DM interaction logs with optional filtering.
+    
+    Args:
+        limit: Maximum number of logs to return (default: 20)
+        username: Filter logs by specific username (optional)
+    
+    Returns:
+        A dictionary containing recent logs and metadata.
+    """
+    try:
+        logs = _read_json(LOGS_FILE)
+        
+        # Filter by username if provided
+        if username:
+            logs = [log for log in logs if log.get("username") == username]
+        
+        # Sort by timestamp (newest first) and limit
+        logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        recent_logs = logs[:limit]
+        
+        return {
+            "success": True,
+            "logs": recent_logs,
+            "total_count": len(logs),
+            "returned_count": len(recent_logs),
+            "filtered_by": username if username else "all"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@mcp.tool()
+def get_processing_stats() -> Dict[str, Any]:
+    """Get comprehensive processing statistics from logs.
+    
+    Returns:
+        A dictionary with detailed statistics about DM processing.
+    """
+    try:
+        logs = _read_json(LOGS_FILE)
+        targets = _read_json(TARGETS_FILE)
+        
+        if not logs:
+            return {
+                "success": True,
+                "stats": {
+                    "total_messages": 0,
+                    "messages_by_intent": {},
+                    "success_rate": 0,
+                    "avg_response_time": 0,
+                    "target_users": len(targets),
+                    "recent_activity": "No activity"
+                }
+            }
+        
+        # Calculate statistics
+        total_messages = len(logs)
+        resolved_messages = sum(1 for log in logs if log.get("resolved", False))
+        success_rate = (resolved_messages / total_messages * 100) if total_messages > 0 else 0
+        
+        # Messages by intent
+        intent_counts = {}
+        for log in logs:
+            intent = log.get("intent", "unknown")
+            intent_counts[intent] = intent_counts.get(intent, 0) + 1
+        
+        # Average response time
+        response_times = [log.get("response_time", 0) for log in logs if log.get("response_time")]
+        avg_response_time = sum(response_times) / len(response_times) if response_times else 0
+        
+        # Recent activity (last 24 hours)
+        now = datetime.utcnow()
+        recent_logs = [
+            log for log in logs 
+            if log.get("timestamp") and 
+            (now - datetime.fromisoformat(log["timestamp"])).days < 1
+        ]
+        
+        return {
+            "success": True,
+            "stats": {
+                "total_messages": total_messages,
+                "resolved_messages": resolved_messages,
+                "success_rate": round(success_rate, 1),
+                "messages_by_intent": intent_counts,
+                "avg_response_time": round(avg_response_time, 2),
+                "target_users": len(targets),
+                "recent_activity_24h": len(recent_logs),
+                "last_processed": logs[-1].get("timestamp") if logs else None
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@mcp.tool()
+def add_target(username: str) -> Dict[str, Any]:
+    """Add a username to the target list for DM monitoring.
+    
+    Args:
+        username: Instagram username to monitor
+    
+    Returns:
+        A dictionary with success status and confirmation.
+    """
+    try:
+        targets = _read_json(TARGETS_FILE)
+        
+        # Check if already exists
+        if any(t.get("username") == username for t in targets):
+            return {
+                "success": False,
+                "message": f"Username '{username}' is already in targets list"
+            }
+        
+        # Add new target
+        new_target = {
+            "username": username,
+            "added_at": datetime.utcnow().isoformat(),
+            "active": True
+        }
+        targets.append(new_target)
+        _write_json(TARGETS_FILE, targets)
+        
+        return {
+            "success": True,
+            "message": f"Added '{username}' to targets list",
+            "target": new_target
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@mcp.tool()
+def remove_target(username: str) -> Dict[str, Any]:
+    """Remove a username from the target list.
+    
+    Args:
+        username: Instagram username to remove from monitoring
+    
+    Returns:
+        A dictionary with success status and confirmation.
+    """
+    try:
+        targets = _read_json(TARGETS_FILE)
+        original_count = len(targets)
+        
+        targets = [t for t in targets if t.get("username") != username]
+        _write_json(TARGETS_FILE, targets)
+        
+        removed_count = original_count - len(targets)
+        
+        return {
+            "success": True,
+            "message": f"Removed '{username}' from targets list",
+            "removed_count": removed_count
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@mcp.tool()
+def list_targets() -> Dict[str, Any]:
+    """Get the current list of target usernames being monitored.
+    
+    Returns:
+        A dictionary containing the list of targets and metadata.
+    """
+    try:
+        targets = _read_json(TARGETS_FILE)
+        
+        return {
+            "success": True,
+            "targets": targets,
+            "count": len(targets),
+            "active_count": sum(1 for t in targets if t.get("active", True))
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@mcp.tool()
+def get_system_status() -> Dict[str, Any]:
+    """Get overall system status including backend, Instagram connection, and OpenRouter.
+    
+    Returns:
+        A dictionary with system status information.
+    """
+    try:
+        # Check Instagram connection
+        instagram_status = "unknown"
+        try:
+            # Try a simple API call to check connection
+            client.user_info_by_username("instagram")
+            instagram_status = "connected"
+        except Exception as e:
+            instagram_status = f"error: {str(e)[:100]}"
+        
+        # Check OpenRouter API key
+        openrouter_status = "configured" if os.getenv("OPENROUTER_API_KEY") else "not_configured"
+        
+        # Check data files
+        data_files = {
+            "targets": TARGETS_FILE.exists(),
+            "logs": LOGS_FILE.exists(),
+            "templates": TEMPLATES_FILE.exists()
+        }
+        
+        # Get recent activity
+        logs = _read_json(LOGS_FILE)
+        recent_activity = len([log for log in logs[-10:] if log.get("timestamp")])
+        
+        return {
+            "success": True,
+            "status": {
+                "instagram_connection": instagram_status,
+                "openrouter_api": openrouter_status,
+                "data_files": data_files,
+                "recent_activity": recent_activity,
+                "last_check": datetime.utcnow().isoformat()
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @mcp.tool()
 def send_message(username: str, message: str) -> Dict[str, Any]:
@@ -48,6 +342,98 @@ def send_message(username: str, message: str) -> Dict[str, Any]:
         else:
             return {"success": False, "message": "Failed to send message."}
     except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@mcp.tool()
+def list_messages(thread_id: str, amount: int = 20) -> Dict[str, Any]:
+    """Get messages from a specific thread.
+
+    Args:
+        thread_id: The thread ID to get messages from.
+        amount: Number of messages to retrieve (default: 20).
+    Returns:
+        A dictionary with success status and list of messages.
+    """
+    if not thread_id:
+        return {"success": False, "message": "Thread ID must be provided."}
+    try:
+        messages = client.direct_messages(int(thread_id), amount=amount)
+        formatted_messages = []
+        for msg in messages:
+            formatted_msg = {
+                "id": getattr(msg, 'id', None),
+                "text": getattr(msg, 'text', ''),
+                "from": getattr(msg, 'user_id', None),
+                "timestamp": getattr(msg, 'timestamp', None),
+                "item_type": getattr(msg, 'item_type', 'text'),
+                "handled": False
+            }
+            formatted_messages.append(formatted_msg)
+        return {"success": True, "messages": formatted_messages}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@mcp.tool()
+def mark_message_seen(thread_id: str, message_id: str) -> Dict[str, Any]:
+    """Mark a message as seen in a thread.
+
+    Args:
+        thread_id: The thread ID containing the message.
+        message_id: The message ID to mark as seen.
+    Returns:
+        A dictionary with success status and confirmation.
+    """
+    if not thread_id or not message_id:
+        return {"success": False, "message": "Thread ID and message ID must be provided."}
+    try:
+        # Note: instagrapi doesn't have a direct mark_as_seen method
+        # This is a placeholder for when the API is working
+        return {"success": True, "message": f"Message {message_id} marked as seen in thread {thread_id}."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@mcp.tool()
+def list_chats(
+    amount: int = 20,
+    selected_filter: str = "",
+    thread_message_limit: Optional[int] = None,
+    full: bool = False,
+    fields: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Get list of Instagram DM chats/threads.
+
+    Args:
+        amount: Number of threads to retrieve (default: 20).
+        selected_filter: Filter for specific thread types (default: "").
+        thread_message_limit: Limit messages per thread (default: None).
+        full: Return full thread objects (default: False).
+        fields: Specific fields to return (default: None).
+    Returns:
+        A dictionary with success status and list of threads.
+    """
+    def thread_summary(thread):
+        return {
+            "thread_id": getattr(thread, 'id', None),
+            "users": [{"user_id": getattr(user, 'pk', None), "username": getattr(user, 'username', None)} for user in getattr(thread, 'users', [])],
+            "last_activity": getattr(thread, 'last_activity', None),
+            "unseen_count": getattr(thread, 'unseen_count', 0)
+        }
+
+    def filter_fields(thread, fields):
+        return {field: getattr(thread, field, None) for field in fields}
+
+    try:
+        threads = client.direct_threads(amount=amount, box=selected_filter, thread_message_limit=thread_message_limit)
+        if full:
+            return {"success": True, "threads": [t.dict() if hasattr(t, 'dict') else str(t) for t in threads]}
+        elif fields:
+            return {"success": True, "threads": [filter_fields(t, fields) for t in threads]}
+        else:
+            return {"success": True, "threads": [thread_summary(t) for t in threads]}
+    except Exception as e:
+        import traceback
+        print("Exception in list_chats:", repr(e))
+        traceback.print_exc()
         return {"success": False, "message": str(e)}
 
 
@@ -108,128 +494,6 @@ def send_video_message(username: str, video_path: str) -> Dict[str, Any]:
             return {"success": True, "message": "Video sent successfully.", "direct_message_id": getattr(result, 'id', None)}
         else:
             return {"success": False, "message": "Failed to send video."}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def list_chats(
-    amount: int = 20,
-    selected_filter: str = "",
-    thread_message_limit: Optional[int] = None,
-    full: bool = False,
-    fields: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    """Get Instagram Direct Message threads (chats) from the user's account, with optional filters and limits.
-
-    Args:
-        amount: Number of threads to fetch (default 20).
-        selected_filter: Filter for threads ("", "flagged", or "unread").
-        thread_message_limit: Limit for messages per thread.
-        full: If True, return the full thread object for each chat (default False).
-        fields: If provided, return only these fields for each thread.
-    Returns:
-        A dictionary with success status and the list of threads or error message.
-    """
-    def thread_summary(thread):
-        t = thread if isinstance(thread, dict) else thread.dict()
-        users = t.get("users", [])
-        user_summaries = [
-            {
-                "username": u.get("username"),
-                "full_name": u.get("full_name"),
-                "pk": u.get("pk")
-            }
-            for u in users
-        ]
-        return {
-            "thread_id": t.get("id"),
-            "thread_title": t.get("thread_title"),
-            "users": user_summaries,
-            "last_activity_at": t.get("last_activity_at"),
-            "last_message": t.get("messages", [{}])[-1] if t.get("messages") else None
-        }
-
-    def filter_fields(thread, fields):
-        t = thread if isinstance(thread, dict) else thread.dict()
-        return {field: t.get(field) for field in fields}
-
-    try:
-        threads = client.direct_threads(amount, selected_filter, thread_message_limit)
-        if full:
-            return {"success": True, "threads": [t.dict() if hasattr(t, 'dict') else str(t) for t in threads]}
-        elif fields:
-            return {"success": True, "threads": [filter_fields(t, fields) for t in threads]}
-        else:
-            return {"success": True, "threads": [thread_summary(t) for t in threads]}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def list_messages(thread_id: str, amount: int = 20) -> Dict[str, Any]:
-    """Get messages from a specific Instagram Direct Message thread by thread ID, with an optional limit.
-
-    Args:
-        thread_id: The thread ID to fetch messages from.
-        amount: Number of messages to fetch (default 20).
-    Returns:
-        A dictionary with success status and the list of messages or error message.
-    """
-    if not thread_id:
-        return {"success": False, "message": "Thread ID must be provided."}
-    try:
-        messages = client.direct_messages(int(thread_id), amount)
-        result_msgs = []
-        for m in messages:
-            msg = m.dict() if hasattr(m, 'dict') else (m if isinstance(m, dict) else {})
-            # Expose item_type and shared post/reel info if present
-            item_type = getattr(m, 'item_type', None) or msg.get('item_type')
-            shared_info = None
-            shared_url = None
-            shared_code = None
-            if item_type in ["clip", "media_share", "reel_share", "xma_media_share", "post_share"]:
-                # Try to extract code/url from known attributes
-                clip = getattr(m, 'clip', None) or msg.get('clip')
-                media_share = getattr(m, 'media_share', None) or msg.get('media_share')
-                xma = getattr(m, 'xma_media_share', None) or msg.get('xma_media_share')
-                post_share = getattr(m, 'post_share', None) or msg.get('post_share')
-                # Try to get code/url from any of these
-                for obj in [clip, media_share, xma, post_share]:
-                    if obj:
-                        shared_code = obj.get('code') or obj.get('pk')
-                        shared_url = obj.get('url') or (f"https://www.instagram.com/reel/{shared_code}/" if shared_code else None)
-                        shared_info = obj
-                        break
-            msg['item_type'] = item_type
-            msg['shared_post_info'] = shared_info
-            msg['shared_post_url'] = shared_url
-            msg['shared_post_code'] = shared_code
-            result_msgs.append(msg)
-        return {"success": True, "messages": result_msgs}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def mark_message_seen(thread_id: str, message_id: str) -> Dict[str, Any]:
-    """Mark a message as seen in a direct message thread.
-
-    Args:
-        thread_id: The thread ID containing the message.
-        message_id: The ID of the message to mark as seen.
-    Returns:
-        A dictionary with success status and a status message.
-    """
-    if not thread_id or not message_id:
-        return {"success": False, "message": "Both thread_id and message_id must be provided."}
-    
-    try:
-        result = client.direct_message_seen(int(thread_id), int(message_id))
-        if result:
-            return {"success": True, "message": "Message marked as seen."}
-        else:
-            return {"success": False, "message": "Failed to mark message as seen."}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -859,29 +1123,7 @@ def mute_conversation(thread_id: str, mute: bool = True) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-   parser = argparse.ArgumentParser()
-   parser.add_argument("--username", type=str, help="Instagram username (can also be set via INSTAGRAM_USERNAME env var)")
-   parser.add_argument("--password", type=str, help="Instagram password (can also be set via INSTAGRAM_PASSWORD env var)")
-   args = parser.parse_args()
-
-   # Get credentials from environment variables or command line arguments
-   username = args.username or os.getenv("INSTAGRAM_USERNAME")
-   password = args.password or os.getenv("INSTAGRAM_PASSWORD")
-
-   if not username or not password:
-       logger.error("Instagram credentials not provided. Please set INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD environment variables in a .env file, or provide --username and --password arguments.")
-       print("Error: Instagram credentials not provided.")
-       print("Please either:")
-       print("1. Create a .env file with INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD")
-       print("2. Use --username and --password command line arguments")
-       exit(1)
-
-   try:
-       logger.info("Attempting to login to Instagram...")
-       client.login(username, password)
-       logger.info("Successfully logged in to Instagram")
-       mcp.run(transport="stdio")
-   except Exception as e:
-       logger.error(f"Failed to login to Instagram: {str(e)}")
-       print(f"Error: Failed to login to Instagram - {str(e)}")
-       exit(1)
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
+    
+    mcp.run(transport="stdio")

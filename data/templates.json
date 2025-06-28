@@ -4,13 +4,15 @@
     "intent": "greeting",
     "title": "Welcome Message",
     "content": "Hello {username}! \ud83d\udc4b Thanks for reaching out. How can we help you today?",
-    "tags": []
+    "tags": [],
+    "keywords": ["hello", "hi", "hey", "greetings"]
   },
   {
     "intent": "pricing",
     "title": "Pricing Information",
     "content": "Hi {username}! Our pricing starts at $99/month. We offer flexible plans to fit your needs. Would you like to schedule a call to discuss options?",
     "id": 4,
-    "tags": []
+    "tags": [],
+    "keywords": ["price", "pricing", "cost", "how much", "rate"]
   }
 ]
