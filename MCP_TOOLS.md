@@ -80,16 +80,49 @@ INSTAGRAM_USERNAME=your_username
 INSTAGRAM_PASSWORD=your_password
 OPENROUTER_API_KEY=your_openrouter_key
 USE_OPENROUTER=1
-OPENROUTER_MODEL=deepseek/deepseek-r1-0528:free
+OPENROUTER_MODEL=deepseek/deepseek-r1
 ```
+
+#### **OpenRouter Model Details**
+- **Default Model:** `deepseek/deepseek-r1`
+- **Other Available:** `deepseek/deepseek-v3`
+
+**DeepSeek R1**
+- Parameters: 236B
+- License: Apache 2.0
+- Availability: Free-tier (may be rate-limited during peak hours)
+- Pricing: $0.10 per 1M input tokens, $0.20 per 1M output tokens (subject to change)
+- Use: General-purpose, fast, and accurate for most DM tasks
+
+**DeepSeek V3**
+- Parameters: 236B (improved architecture)
+- License: Apache 2.0
+- Availability: Free-tier and paid (may be rate-limited during peak hours)
+- Pricing: $0.15 per 1M input tokens, $0.30 per 1M output tokens (subject to change)
+- Use: More advanced reasoning, better for complex conversations
+
+**Free-Tier Access:**
+- Both models are available for free via OpenRouter, but you may experience delays or rate limits during peak traffic.
+- If you hit a limit, try again later or consider upgrading your OpenRouter plan.
+
+**Switching Models:**
+- To use a different model, set `OPENROUTER_MODEL` in your `.env` file. Example:
+  ```bash
+  OPENROUTER_MODEL=deepseek/deepseek-v3
+  ```
+- Restart the backend after changing the model.
+
+**Monitor Usage:**
+- Check your [OpenRouter dashboard](https://openrouter.ai/dashboard) for usage limits, token consumption, and tier restrictions.
+- Free-tier users may be subject to stricter rate limits and slower response times during high demand.
 
 ### **Data Files**
 The system uses these JSON files:
-- `data/targets.json` - List of usernames to monitor
-- `data/logs.json` - DM interaction history
-- `data/templates.json` - Response templates (managed via frontend)
+- `data/targets.json` - Array of username strings to monitor
+- `data/logs.json` - Array of log objects with standardized schema (see schema section)
+- `data/templates.json` - Template objects (managed via frontend)
 
-## 🎯 Workflow
+**Note:** These files are automatically created with empty arrays if they don't exist.## 🎯 Workflow
 
 1. **Setup:** Add target usernames using `add_target()`
 2. **Monitor:** Use `get_system_status()` to check everything is working

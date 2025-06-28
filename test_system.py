@@ -76,7 +76,8 @@ def test_backend():
             processed = response.json()
             print(f"✅ Process messages endpoint: OK ({len(processed)} processed)")
             for msg in processed:
-                print(f"   - {msg['from_user']}: '{msg['text'][:30]}...' → {msg['intent']}")
+                text_preview = str(msg.get('text', ''))[:30]
+                print(f"   - {msg.get('from_user', 'unknown')}: '{text_preview}...' → {msg.get('intent', 'unknown')}")
         else:
             print(f"❌ Process messages endpoint: {response.status_code}")
             print(f"   Response: {response.text}")

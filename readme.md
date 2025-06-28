@@ -33,7 +33,7 @@ Claude Desktop MCP → Instagram (via MCP)
 
 ### 1. Setup Environment
 
-```bash
+   ```bash
 # Clone and install
 git clone https://github.com/yourusername/ai-dm-automation
 cd ai-dm-automation
@@ -65,12 +65,12 @@ uvicorn main:app --reload --port 8000
 cd frontend && npm run dev
 
 # Terminal 3: MCP Server (for Claude Desktop)
+# Note: Run src/authenticate_instagram.py first if you haven't logged in yet
 python src/mcp_server.py
-```
 
 ### 3. Use Claude Desktop
 
-```bash
+    ```bash
 # In Claude Desktop, use:
 list_chats()                    # Get all DM threads
 list_messages("thread_id")      # Get messages from thread
@@ -80,7 +80,7 @@ mark_message_seen("thread_id")  # Mark messages as seen
 
 ### 4. Process Messages
 
-```bash
+    ```bash
 # Send message list to backend for processing
 curl -X POST http://localhost:8000/api/process_messages \
   -H "Content-Type: application/json" \
@@ -104,8 +104,8 @@ Visit `http://localhost:5173` to:
 ## Configuration
 
 ### Environment Variables
-
-```bash
+   
+   ```bash
 # OpenRouter (for DeepSeek R1)
 OPENROUTER_API_KEY=your_key
 USE_OPENROUTER=1
@@ -122,8 +122,8 @@ INSTAGRAM_PASSWORD=your_password
 - `data/targets.json` - User monitoring list (optional)
 
 ## Workflow Example
-
-```bash
+   
+   ```bash
 # 1. Get DM threads
 Claude: list_chats()
 

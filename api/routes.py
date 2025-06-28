@@ -3,9 +3,10 @@ from pydantic import BaseModel
 from typing import List, Optional
 from utils.mcp_client import (
     get_logs, add_log_entry,
-    openrouter_chat_completion, classify_intent
+    openrouter_chat_completion, classify_intent, get_intent_categories
 )
 from datetime import datetime
+import re
 
 router = APIRouter()
 
@@ -61,11 +62,16 @@ def stats():
         "messagesByIntent": intent_counts
     }
 
+@router.get("/intents")
+def intents():
+    """Get all available intent categories with descriptions"""
+    return get_intent_categories()
+
 @router.post("/process_messages", response_model=List[ProcessedMessageModel])
 def process_messages(messages: List[MessageModel]):
     processed = []
     for msg in messages:
-        # 1. Classify intent
+        # 1. Classify intent using enhanced classification
         intent = classify_intent(msg.text)
         # 2. Try LLM suggestion
         suggestion = None
@@ -74,12 +80,28 @@ def process_messages(messages: List[MessageModel]):
             system_prompt = (
                 "You are an Instagram DM assistant. Analyze the following message and respond appropriately.\n"
                 "INSTRUCTIONS:\n"
-                "1. Classify the intent of the message: [greeting, question, pricing_inquiry, support_request, sales_lead, complaint, spam, other]\n"
+                "1. Classify the intent of the message into one of these categories:\n"
+                "   - greeting: Initial contact, hellos, introductions\n"
+                "   - pricing_inquiry: Questions about costs, rates, pricing\n"
+                "   - support_request: Help requests, technical issues, problems\n"
+                "   - sales_lead: Purchase interest, buying intent, orders\n"
+                "   - complaint: Negative feedback, complaints, dissatisfaction\n"
+                "   - spam: Unwanted messages, unsubscribe requests\n"
+                "   - appointment: Scheduling requests, bookings, meetings\n"
+                "   - feedback: Reviews, ratings, suggestions, opinions\n"
+                "   - partnership: Business opportunities, collaborations, deals\n"
+                "   - general_inquiry: General questions, information requests\n"
+                "   - other: Miscellaneous messages, unclear intent\n"
                 "2. Provide a helpful, friendly, and professional response in context\n"
                 "3. Keep responses concise but warm\n"
                 "4. If it's a pricing question, mention starting at $99/month\n"
                 "5. If it's a greeting, be welcoming and ask how you can help\n"
                 "6. If it's a support request, be empathetic and offer assistance\n"
+                "7. If it's a sales lead, be enthusiastic and provide next steps\n"
+                "8. If it's a complaint, be apologetic and offer solutions\n"
+                "9. If it's an appointment request, offer scheduling options\n"
+                "10. If it's feedback, thank them and ask for more details\n"
+                "11. If it's a partnership inquiry, show interest and ask for details\n"
                 "RESPONSE FORMAT:\nIntent: [classified_intent]\nReply: [your_response]"
             )
             messages_llm = [
@@ -90,12 +112,24 @@ def process_messages(messages: List[MessageModel]):
             if not isinstance(llm_response, str):
                 llm_response = str(llm_response) if llm_response is not None else ""
             # Try to parse LLM response
-            import re
-            reply_match = re.search(r'Reply:\s*(.+)', llm_response, re.IGNORECASE | re.DOTALL) if llm_response else None
-            if reply_match:
-                suggestion = reply_match.group(1).strip()
+            if llm_response:
+                # Strategy 1: Look for "Reply:" format
+                reply_match = re.search(r'Reply:\s*(.+)', llm_response, re.IGNORECASE | re.DOTALL)
+                if reply_match:
+                    suggestion = reply_match.group(1).strip()
+                else:
+                    # Strategy 2: Look for text after "Intent:" line
+                    lines = llm_response.strip().split('\n')
+                    reply_lines = []
+                    found_intent = False
+                    for line in lines:
+                        if line.lower().startswith('intent:'):
+                            found_intent = True
+                        elif found_intent and line.strip():
+                            reply_lines.append(line)
+                    suggestion = ' '.join(reply_lines).strip() if reply_lines else llm_response.strip()
             else:
-                suggestion = llm_response.strip() if llm_response else ""
+                suggestion = ""
         except Exception:
             suggestion = None
         # 3. Fallback to simple response if LLM fails

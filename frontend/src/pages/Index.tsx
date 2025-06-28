@@ -175,6 +175,68 @@ ${commands.markSeen}
     copyToClipboard(allCommands, 'All MCP Commands');
   };
 
+  const getIntentColor = (intent: string) => {
+    switch (intent) {
+      case 'greeting':
+        return 'bg-purple-100 text-purple-800';
+      case 'pricing_inquiry':
+        return 'bg-blue-100 text-blue-800';
+      case 'support_request':
+        return 'bg-orange-100 text-orange-800';
+      case 'sales_lead':
+        return 'bg-green-100 text-green-800';
+      case 'complaint':
+        return 'bg-red-100 text-red-800';
+      case 'spam':
+        return 'bg-gray-100 text-gray-800';
+      case 'appointment':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'feedback':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'partnership':
+        return 'bg-pink-100 text-pink-800';
+      case 'general_inquiry':
+        return 'bg-teal-100 text-teal-800';
+      case 'other':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getIntentBarColor = (intent: string) => {
+    switch (intent) {
+      case 'greeting':
+        return 'bg-purple-500';
+      case 'pricing_inquiry':
+        return 'bg-blue-500';
+      case 'support_request':
+        return 'bg-orange-500';
+      case 'sales_lead':
+        return 'bg-green-500';
+      case 'complaint':
+        return 'bg-red-500';
+      case 'spam':
+        return 'bg-gray-500';
+      case 'appointment':
+        return 'bg-indigo-500';
+      case 'feedback':
+        return 'bg-yellow-500';
+      case 'partnership':
+        return 'bg-pink-500';
+      case 'general_inquiry':
+        return 'bg-teal-500';
+      case 'other':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const formatIntentName = (intent: string) => {
+    return intent.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -308,25 +370,15 @@ ${commands.markSeen}
                         <div key={intent} className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <div className={`px-2 py-1 rounded text-xs font-medium uppercase ${
-                              intent === 'question' ? 'bg-green-100 text-green-800' :
-                              intent === 'pricing_inquiry' ? 'bg-blue-100 text-blue-800' :
-                              intent === 'sales_lead' ? 'bg-orange-100 text-orange-800' :
-                              intent === 'complaint' ? 'bg-red-100 text-red-800' :
-                              intent === 'greeting' ? 'bg-purple-100 text-purple-800' :
-                              'bg-gray-100 text-gray-800'
+                              getIntentColor(intent)
                             }`}>
-                              {intent.replace('_', ' ')}
+                              {formatIntentName(intent)}
                             </div>
-                            <span className="text-gray-600 capitalize">{intent.replace('_', ' ')}</span>
+                            <span className="text-gray-600 capitalize">{formatIntentName(intent)}</span>
                           </div>
                           <div className="flex items-center space-x-4">
                             <div className={`h-2 rounded-full ${
-                              intent === 'question' ? 'bg-green-500' :
-                              intent === 'pricing_inquiry' ? 'bg-blue-500' :
-                              intent === 'sales_lead' ? 'bg-orange-500' :
-                              intent === 'complaint' ? 'bg-red-500' :
-                              intent === 'greeting' ? 'bg-purple-500' :
-                              'bg-gray-500'
+                              getIntentBarColor(intent)
                             }`} style={{ width: `${barWidth}px` }} />
                             <div className="text-right">
                               <div className="font-semibold">{count}</div>

@@ -12,8 +12,15 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Load environment variables
-source .env
+# Safely load environment variables from .env
+set -a
+while IFS='=' read -r key value; do
+  # Ignore comments and empty lines
+  if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && [[ ! "$key" =~ ^# ]]; then
+    export "$key"="${value%\"}"
+  fi
+done < .env
+set +a
 
 # Check OpenRouter API key
 if [ -z "$OPENROUTER_API_KEY" ]; then
@@ -70,6 +77,21 @@ echo ""
 # Start backend in background
 uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
+
+# Verify backend started successfully
+echo "⏳ Waiting for backend to start..."
+for i in {1..10}; do
+    if curl -s http://localhost:8000/api/ping > /dev/null 2>&1; then
+        echo "✅ Backend started successfully"
+        break
+    fi
+    sleep 1
+    if [ $i -eq 10 ]; then
+        echo "❌ Backend failed to start"
+        kill $BACKEND_PID 2>/dev/null
+        exit 1
+    fi
+done
 
 # Wait a moment for backend to start
 sleep 3

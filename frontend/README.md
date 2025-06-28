@@ -33,8 +33,8 @@ npm install
 ### 4. Run the backend
 ```sh
 cd ..
-python main.py
-# or use start.sh for both backend and frontend
+uvicorn main:app --reload --port 8000
+# or use ./start.sh to start both backend and frontend automatically
 ```
 
 ### 5. Run the frontend

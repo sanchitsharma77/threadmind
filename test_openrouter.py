@@ -11,6 +11,12 @@ def test_openrouter():
     """Test OpenRouter DeepSeek R1 integration"""
     load_dotenv()
     
+    # Validate required environment variables
+    if not os.getenv("OPENROUTER_API_KEY"):
+        print("❌ Error: OPENROUTER_API_KEY not found in environment variables")
+        return
+    
+    print("🧪 Testing OpenRouter DeepSeek R1 Integration")    
     print("🧪 Testing OpenRouter DeepSeek R1 Integration")
     print("=" * 50)
     

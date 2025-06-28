@@ -12,6 +12,19 @@ if not username or not password:
     exit(1)
 
 client = Client()
+client = Client()
+
+# Check if existing session is valid
+session_file = Path("instagrapi_settings.json")
+if session_file.exists():
+    try:
+        client.load_settings(session_file)
+        client.get_timeline_feed()  # Test if session is valid
+        print("Existing session is valid!")
+        exit(0)
+    except:
+        print("Existing session invalid, re-authenticating...")
+
 try:
     client.login(username, password)
     print("Login successful!")
@@ -19,4 +32,4 @@ try:
     print("Session saved to instagrapi_settings.json")
 except Exception as e:
     print(f"Login failed: {e}")
-    exit(1) 
+    exit(1)

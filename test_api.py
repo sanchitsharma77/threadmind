@@ -53,6 +53,22 @@ def test_stats():
         print(f"❌ Stats error: {e}")
         return False
 
+def test_intents():
+    """Test the intents endpoint"""
+    try:
+        response = requests.get(f"{BASE_URL}/intents")
+        if response.status_code == 200:
+            intents = response.json()
+            print(f"✅ Intents endpoint working ({len(intents)} intent categories)")
+            print("   Available intents:", ", ".join(intents.keys()))
+            return True
+        else:
+            print(f"❌ Intents failed: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Intents error: {e}")
+        return False
+
 def test_process_messages():
     """Test the process_messages endpoint"""
     test_messages = [
@@ -73,6 +89,9 @@ def test_process_messages():
         if response.status_code == 200:
             processed = response.json()
             print(f"✅ Process messages endpoint working ({len(processed)} processed)")
+            if processed:
+                intent = processed[0].get("intent", "unknown")
+                print(f"   Test message classified as: {intent}")
             return True
         else:
             print(f"❌ Process messages failed: {response.status_code}")
@@ -94,6 +113,7 @@ def main():
         ("Ping", test_ping),
         ("Logs", test_logs),
         ("Stats", test_stats),
+        ("Intents", test_intents),
         ("Process Messages", test_process_messages)
     ]
     

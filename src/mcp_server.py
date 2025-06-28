@@ -23,13 +23,36 @@ It can list chats, fetch messages, send replies, and manage the DM poller system
 """
 
 client = Client()
-# Load saved session if available
-settings_path = Path("instagrapi_settings.json")
-if settings_path.exists():
-    client.load_settings(settings_path)
-    print("Loaded Instagram session from instagrapi_settings.json")
+
+# Try to load session/device info from environment variables
+sessionid = os.getenv("INSTAGRAM_SESSIONID")
+ds_user_id = os.getenv("INSTAGRAM_DS_USER_ID")
+csrftoken = os.getenv("INSTAGRAM_CSRFTOKEN")
+mid = os.getenv("INSTAGRAM_MID")
+rur = os.getenv("INSTAGRAM_RUR")
+
+if sessionid and ds_user_id and csrftoken and mid and rur:
+    # Set session settings directly
+    client.set_settings({
+        "sessionid": sessionid,
+        "ds_user_id": ds_user_id,
+        "csrftoken": csrftoken,
+        "mid": mid,
+        "rur": rur
+    })
+    print("Loaded Instagram session from environment variables.")
 else:
-    print("No saved Instagram session found. Please run the authentication script.")
+    # Fallback to login with username/password
+    username = os.getenv("INSTAGRAM_USERNAME")
+    password = os.getenv("INSTAGRAM_PASSWORD")
+    if username and password:
+        try:
+            client.login(username, password)
+            print("Logged in to Instagram using username and password.")
+        except Exception as e:
+            print(f"Instagram login failed: {e}")
+    else:
+        print("No Instagram session or credentials found. Please set environment variables.")
 
 mcp = FastMCP(
    name="Instagram DMs",
@@ -52,33 +75,6 @@ def _write_json(path, data):
     path.parent.mkdir(exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-
-@mcp.tool()
-def run_poller_once() -> Dict[str, Any]:
-    """Run the DM poller once to process new messages and generate AI replies.
-    
-    Returns:
-        A dictionary with success status and output from the poller.
-    """
-    try:
-        result = subprocess.run(
-            ["python", "tasks/run_poller_once.py"],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-        return {
-            "success": result.returncode == 0,
-            "output": result.stdout,
-            "error": result.stderr,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }
 
 @mcp.tool()
 def get_recent_logs(limit: int = 20, username: Optional[str] = None) -> Dict[str, Any]:
