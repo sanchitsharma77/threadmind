@@ -7,6 +7,9 @@ from utils.mcp_client import (
 )
 from datetime import datetime
 import re
+import subprocess
+import sys
+import json
 
 router = APIRouter()
 
@@ -26,6 +29,8 @@ class ProcessedMessageModel(BaseModel):
     intent: str
     suggestion: str
     used_template: bool
+
+PROMPT_FILE = 'data/prompt.txt'
 
 @router.get("/ping")
 def ping():
@@ -67,10 +72,33 @@ def intents():
     """Get all available intent categories with descriptions"""
     return get_intent_categories()
 
+@router.get('/prompt')
+def get_prompt():
+    try:
+        with open(PROMPT_FILE, 'r', encoding='utf-8') as f:
+            return {'prompt': f.read()}
+    except FileNotFoundError:
+        return {'prompt': ''}
+
+@router.post('/prompt')
+def set_prompt(data: dict):
+    prompt = data.get('prompt', '')
+    with open(PROMPT_FILE, 'w', encoding='utf-8') as f:
+        f.write(prompt)
+    return {'success': True, 'prompt': prompt}
+
 @router.post("/process_messages", response_model=List[ProcessedMessageModel])
 def process_messages(messages: List[MessageModel]):
     processed = []
     for msg in messages:
+        # Load custom prompt if present
+        try:
+            with open(PROMPT_FILE, 'r', encoding='utf-8') as f:
+                custom_prompt = f.read().strip()
+            if custom_prompt:
+                system_prompt = custom_prompt
+        except Exception:
+            pass
         # 1. Classify intent using enhanced classification
         intent = classify_intent(msg.text)
         # 2. Try LLM suggestion
@@ -146,6 +174,7 @@ def process_messages(messages: List[MessageModel]):
             "intent": intent,
             "suggestion": suggestion,
             "used_template": used_template,
+            "outcome": "responded",  # Default outcome
         }
         add_log_entry(log_entry)
         processed.append(ProcessedMessageModel(
@@ -159,3 +188,18 @@ def process_messages(messages: List[MessageModel]):
             used_template=used_template
         ))
     return processed
+
+@router.get("/thread/{thread_id}/messages")
+def get_thread_messages(thread_id: str):
+    """
+    Fetch all messages for a given thread_id using MCP tool.
+    """
+    try:
+        cmd = [sys.executable, "src/mcp_server.py", "--tool", "list_messages", "--thread_id", thread_id]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode != 0:
+            return {"success": False, "error": result.stderr}
+        data = json.loads(result.stdout)
+        return data
+    except Exception as e:
+        return {"success": False, "error": str(e)}

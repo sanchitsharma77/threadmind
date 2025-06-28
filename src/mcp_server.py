@@ -61,9 +61,7 @@ mcp = FastMCP(
 
 # Data file paths
 DATA_DIR = Path("data")
-TARGETS_FILE = DATA_DIR / "targets.json"
 LOGS_FILE = DATA_DIR / "logs.json"
-TEMPLATES_FILE = DATA_DIR / "templates.json"
 
 def _read_json(path):
     if not path.exists():
@@ -120,7 +118,6 @@ def get_processing_stats() -> Dict[str, Any]:
     """
     try:
         logs = _read_json(LOGS_FILE)
-        targets = _read_json(TARGETS_FILE)
         
         if not logs:
             return {
@@ -130,7 +127,7 @@ def get_processing_stats() -> Dict[str, Any]:
                     "messages_by_intent": {},
                     "success_rate": 0,
                     "avg_response_time": 0,
-                    "target_users": len(targets),
+                    "target_users": 0,
                     "recent_activity": "No activity"
                 }
             }
@@ -166,102 +163,10 @@ def get_processing_stats() -> Dict[str, Any]:
                 "success_rate": round(success_rate, 1),
                 "messages_by_intent": intent_counts,
                 "avg_response_time": round(avg_response_time, 2),
-                "target_users": len(targets),
+                "target_users": 0,
                 "recent_activity_24h": len(recent_logs),
                 "last_processed": logs[-1].get("timestamp") if logs else None
             }
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@mcp.tool()
-def add_target(username: str) -> Dict[str, Any]:
-    """Add a username to the target list for DM monitoring.
-    
-    Args:
-        username: Instagram username to monitor
-    
-    Returns:
-        A dictionary with success status and confirmation.
-    """
-    try:
-        targets = _read_json(TARGETS_FILE)
-        
-        # Check if already exists
-        if any(t.get("username") == username for t in targets):
-            return {
-                "success": False,
-                "message": f"Username '{username}' is already in targets list"
-            }
-        
-        # Add new target
-        new_target = {
-            "username": username,
-            "added_at": datetime.utcnow().isoformat(),
-            "active": True
-        }
-        targets.append(new_target)
-        _write_json(TARGETS_FILE, targets)
-        
-        return {
-            "success": True,
-            "message": f"Added '{username}' to targets list",
-            "target": new_target
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@mcp.tool()
-def remove_target(username: str) -> Dict[str, Any]:
-    """Remove a username from the target list.
-    
-    Args:
-        username: Instagram username to remove from monitoring
-    
-    Returns:
-        A dictionary with success status and confirmation.
-    """
-    try:
-        targets = _read_json(TARGETS_FILE)
-        original_count = len(targets)
-        
-        targets = [t for t in targets if t.get("username") != username]
-        _write_json(TARGETS_FILE, targets)
-        
-        removed_count = original_count - len(targets)
-        
-        return {
-            "success": True,
-            "message": f"Removed '{username}' from targets list",
-            "removed_count": removed_count
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@mcp.tool()
-def list_targets() -> Dict[str, Any]:
-    """Get the current list of target usernames being monitored.
-    
-    Returns:
-        A dictionary containing the list of targets and metadata.
-    """
-    try:
-        targets = _read_json(TARGETS_FILE)
-        
-        return {
-            "success": True,
-            "targets": targets,
-            "count": len(targets),
-            "active_count": sum(1 for t in targets if t.get("active", True))
         }
     except Exception as e:
         return {
@@ -291,9 +196,9 @@ def get_system_status() -> Dict[str, Any]:
         
         # Check data files
         data_files = {
-            "targets": TARGETS_FILE.exists(),
+            "targets": False,
             "logs": LOGS_FILE.exists(),
-            "templates": TEMPLATES_FILE.exists()
+            "templates": False
         }
         
         # Get recent activity

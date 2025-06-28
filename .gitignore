@@ -7,3 +7,4 @@ pyvenv.cfg
 .env
 .venv
 instagrapi_settings.json
+node_modules/

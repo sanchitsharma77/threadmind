@@ -7,8 +7,7 @@ A local, privacy-first Instagram DM Concierge system.
 - Vite + React + Tailwind frontend
 - All data stored locally in JSON files (no external APIs)
 - MCP/Claude integration for Instagram DM automation
-- Dashboard for managing templates, targets, tags, and logs
-- Manual and scheduled DM poller
+- Dashboard for managing stats, logs, chat, playground, and documentation
 
 ## Quick Start (for Forks/Clones)
 
@@ -27,7 +26,6 @@ pip install -r requirements.txt
 ```sh
 cd frontend
 npm install
-# or bun install
 ```
 
 ### 4. Run the backend
@@ -41,17 +39,10 @@ uvicorn main:app --reload --port 8000
 ```sh
 cd frontend
 npm run dev
-# or bun dev
 ```
 
 ### 6. Open the dashboard
 Go to [http://localhost:5173](http://localhost:5173)
-
-### 7. Run the poller manually (for demo/testing)
-```sh
-python tasks/run_poller_once.py
-```
-Or use the "Run Poller Now" button in the dashboard.
 
 ## Configuration
 - All data is stored in the `data/` directory as JSON files.
@@ -62,7 +53,6 @@ Or use the "Run Poller Now" button in the dashboard.
 - No data leaves your machine. No external APIs or cloud storage.
 
 ## Customization
-- Update templates, targets, and tags via the dashboard.
 - Replace `frontend/public/favicon.ico` with your own branding.
 - Edit `frontend/index.html` for further branding.
 
